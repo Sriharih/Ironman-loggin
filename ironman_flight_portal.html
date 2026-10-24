@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stark Industries - Authentication Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- GSAP CDN for silky-smooth cubic-bezier interpolation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        rajdhani: ['Rajdhani', 'sans-serif'],
+                    },
+                    colors: {
+                        stark: {
+                            gold: '#FFD700',
+                            red: '#B22222',
+                            brightRed: '#FF1E27',
+                            cyan: '#00F0FF',
+                            dark: '#0A0E17',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #04070F;
+            color: #ffffff;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Sci-Fi HUD Glassmorphism */
+        .stark-glass {
+            background: rgba(8, 16, 32, 0.78);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow: 0 10px 40px 0 rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.08);
+        }
+
+        .stark-glass-red {
+            background: rgba(35, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 30, 39, 0.4);
+            box-shadow: 0 8px 30px 0 rgba(255, 30, 39, 0.25);
+        }
+
+        /* HUD Corners */
+        .hud-corner-tl { position: absolute; top: -2px; left: -2px; width: 14px; height: 14px; border-top: 2px solid #00F0FF; border-left: 2px solid #00F0FF; }
+        .hud-corner-tr { position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; border-top: 2px solid #00F0FF; border-right: 2px solid #00F0FF; }
+        .hud-corner-bl { position: absolute; bottom: -2px; left: -2px; width: 14px; height: 14px; border-bottom: 2px solid #00F0FF; border-left: 2px solid #00F0FF; }
+        .hud-corner-br { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; border-bottom: 2px solid #00F0FF; border-right: 2px solid #00F0FF; }
+
+        /* Glow Effects */
+        .glow-cyan { text-shadow: 0 0 12px rgba(0, 240, 255, 0.8), 0 0 24px rgba(0, 240, 255, 0.4); }
+        .glow-box-cyan { box-shadow: 0 0 20px rgba(0, 240, 255, 0.4); }
+        .glow-box-cyan:hover { box-shadow: 0 0 35px rgba(0, 240, 255, 0.8), inset 0 0 15px rgba(0, 240, 255, 0.5); }
+
+        /* Custom Inputs */
+        .stark-input {
+            background: rgba(4, 10, 22, 0.85);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            color: #00F0FF;
+            transition: all 0.3s ease;
+        }
+        .stark-input:focus {
+            outline: none;
+            border-color: #00F0FF;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+        }
+
+        /* Scanline Overlay */
+        .scanlines {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.3) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.02),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.02)
+            );
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        /* Animated Grid */
+        .grid-bg {
+            background-size: 50px 50px;
+            background-image: 
+                linear-gradient(to right, rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+        }
+
+        @keyframes spinSlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-spin-slow { animation: spinSlow 18s linear infinite; }
+
+        @keyframes pulseShock {
+            0% { transform: scale(0.2); opacity: 1; }
+            100% { transform: scale(3.5); opacity: 0; }
+        }
+        .shockwave-effect {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 3px solid #00f0ff;
+            box-shadow: 0 0 30px #00f0ff;
+            pointer-events: none;
+            animation: pulseShock 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        .shake-err {
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-12px); }
+            40%, 80% { transform: translateX(12px); }
+        }
+
+        #canvas-container {display:none}
+        #flight-stage {position:fixed;inset:0;z-index:25;pointer-events:none;perspective:1100px;overflow:hidden}
+        #iron-sprite {position:absolute;left:0;top:0;width:clamp(115px,19vw,250px);transform-origin:50% 50%;will-change:transform,opacity;filter:drop-shadow(0 15px 25px #0009)}
+        #iron-sprite img {display:block;width:100%;height:auto;position:relative;z-index:2;filter:drop-shadow(0 0 10px #00dfff44)}
+        .flame {position:absolute;z-index:1;width:13%;height:32%;top:87%;border-radius:50% 50% 65% 65%;background:linear-gradient(180deg,#fff 0%,#8ef9ff 13%,#00cfff 35%,#ffef53 60%,#ff6515 78%,transparent 100%);filter:blur(5px) drop-shadow(0 0 14px #ff791c);opacity:0;transform-origin:50% 0%;animation:flameFlicker .11s infinite alternate}
+        .left-flame {left:24%}.right-flame {right:24%}
+        #iron-sprite.thrust .flame {opacity:1}
+        @keyframes flameFlicker {from{transform:scaleY(.75) scaleX(.85)}to{transform:scaleY(1.2) scaleX(1.15)}}
+        #transition-veil {position:fixed;inset:0;z-index:26;pointer-events:none;opacity:0;background:radial-gradient(circle at center,#00dfff44,#030611 75%)}
+        .landing-ring {position:fixed;z-index:24;pointer-events:none;border:3px solid #63eeff;border-radius:50%;width:70px;height:20px;box-shadow:0 0 22px #00eaff,0 0 45px #ff7b22;transform:translate(-50%,-50%) scale(.2);animation:landingRing .8s ease-out forwards}
+        @keyframes landingRing {to{transform:translate(-50%,-50%) scale(4);opacity:0}}
+        @media(max-width:767px){#iron-sprite{width:clamp(105px,32vw,155px)} #login-card{margin-top:24vh} #dashboard-view .mt-auto{margin-bottom:4rem}}
+    </style>
+</head>
+<body class="w-screen h-screen relative bg-black font-rajdhani select-none overflow-hidden">
+
+    <!-- HUD Background Effects -->
+    <div class="absolute inset-0 scanlines z-20 pointer-events-none opacity-60"></div>
+    <div class="absolute inset-0 grid-bg z-0 opacity-40"></div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container" class="absolute inset-0 z-10 w-full h-full"></div>
+    <div id="flight-stage" aria-hidden="true"><div id="iron-sprite"><div class="flame left-flame"></div><div class="flame right-flame"></div><img src="ironman_character.png" alt="" draggable="false"></div></div>
+    <div id="transition-veil"></div>
+
+    <!-- Shockwave Container for Landing -->
+    <div id="shockwave-container" class="absolute inset-0 z-15 pointer-events-none overflow-hidden"></div>
+
+    <!-- TOP HUD HEADER -->
+    <header class="absolute top-0 left-0 w-full p-4 md:p-6 z-30 flex justify-between items-center pointer-events-none">
+        <div class="flex items-center space-x-3 pointer-events-auto">
+            <div class="w-10 h-10 rounded-full border border-cyan-400/50 flex items-center justify-center bg-cyan-950/40 glow-box-cyan">
+                <i class="fa-solid fa-atom text-cyan-400 text-xl animate-spin-slow"></i>
+            </div>
+            <div>
+                <h1 class="font-orbitron font-black text-lg md:text-xl tracking-widest text-white glow-cyan">STARK <span class="text-cyan-400">INDUSTRIES</span></h1>
+                <p class="text-[10px] md:text-xs text-cyan-400/70 tracking-widest uppercase font-mono">MARK LXXXV // FLIGHT SYSTEMS ONLINE</p>
+            </div>
+        </div>
+
+        <div class="hidden md:flex items-center space-x-6 text-xs font-mono text-cyan-400/80 bg-stark-dark/70 px-4 py-2 rounded-md border border-cyan-500/30 backdrop-blur-md">
+            <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>SYSTEM: ONLINE</span>
+            </div>
+            <div class="h-3 w-[1px] bg-cyan-500/30"></div>
+            <div>TRI-ARC REACTOR: <span class="text-white font-bold">100%</span></div>
+            <div class="h-3 w-[1px] bg-cyan-500/30"></div>
+            <div>THRUSTERS: <span class="text-emerald-400 font-bold">CALIBRATED</span></div>
+        </div>
+    </header>
+
+    <!-- MAIN UI CONTAINER -->
+    <main class="relative z-30 w-full h-full flex items-center justify-center md:justify-end pointer-events-none px-4 md:pr-16 lg:pr-24">
+
+        <!-- ==================== LOGIN CARD ==================== -->
+        <div id="login-card" class="pointer-events-auto transition-all duration-500 opacity-100 transform translate-y-0 w-full max-w-sm md:max-w-md stark-glass rounded-xl p-6 md:p-8 relative">
+            <div class="hud-corner-tl"></div>
+            <div class="hud-corner-tr"></div>
+            <div class="hud-corner-bl"></div>
+            <div class="hud-corner-br"></div>
+
+            <div class="text-center mb-6">
+                <div class="inline-block p-3 rounded-full bg-cyan-500/10 border border-cyan-400/40 mb-2 glow-box-cyan">
+                    <i class="fa-solid fa-shield-halved text-2xl text-cyan-400"></i>
+                </div>
+                <h2 class="font-orbitron text-xl md:text-2xl font-bold tracking-wider text-white">AUTHENTICATION</h2>
+                <p class="text-xs text-cyan-300/60 uppercase tracking-widest mt-1">Stark Security Terminal</p>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-5">
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-mono text-cyan-300 tracking-wider uppercase">User ID</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400/60">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" id="username" required autocomplete="off" placeholder="Enter ID (hari)" 
+                               class="stark-input w-full pl-10 pr-4 py-3 rounded-lg text-sm font-mono placeholder-cyan-700/60 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-mono text-cyan-300 tracking-wider uppercase">Passcode</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cyan-400/60">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" id="password" required placeholder="Enter Code (1234)" 
+                               class="stark-input w-full pl-10 pr-4 py-3 rounded-lg text-sm font-mono placeholder-cyan-700/60 focus:outline-none">
+                    </div>
+                </div>
+
+                <div id="error-box" class="hidden p-3 rounded-lg bg-red-950/70 border border-red-500/50 text-red-400 text-xs font-mono text-center flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span id="error-text">ACCESS DENIED. INVALID CREDENTIALS.</span>
+                </div>
+
+                <button type="submit" id="login-btn" 
+                        class="w-full py-3.5 rounded-lg bg-gradient-to-r from-cyan-500 via-blue-600 to-cyan-400 text-black font-orbitron font-extrabold tracking-widest uppercase hover:brightness-125 transition-all duration-300 glow-box-cyan flex items-center justify-center space-x-2 cursor-pointer">
+                    <span>INITIATE LOGIN</span>
+                    <i class="fa-solid fa-chevron-right text-black"></i>
+                </button>
+            </form>
+
+            <div class="mt-5 pt-3 border-t border-cyan-500/20 text-center flex justify-between items-center text-[10px] font-mono text-cyan-400/50">
+                <span>SECURITY: LEVEL 8</span>
+                <span>JARVIS ACTIVE</span>
+            </div>
+        </div>
+
+        <!-- ==================== DASHBOARD VIEW ==================== -->
+        <div id="dashboard-view" class="hidden pointer-events-auto transition-all duration-700 opacity-0 transform translate-y-10 fixed inset-0 w-full h-full flex flex-col justify-between p-6 md:p-12 z-30">
+            
+            <!-- Top Left Logout Button -->
+            <div class="absolute top-20 md:top-24 left-6 md:left-12 z-40">
+                <button onclick="handleLogout()" 
+                        class="px-5 py-2.5 rounded-lg stark-glass-red text-red-400 font-orbitron text-xs font-bold tracking-widest hover:bg-red-600 hover:text-white transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-red-500/50 cursor-pointer">
+                    <i class="fa-solid fa-power-off"></i>
+                    <span>LOGOUT PROTOCOL</span>
+                </button>
+            </div>
+
+            <!-- Welcome Title (Right Aligned for Desktop Balance) -->
+            <div class="mt-auto mb-12 md:mb-16 ml-auto max-w-2xl text-right space-y-4 pr-2">
+                <div class="inline-block px-3 py-1 rounded bg-cyan-500/10 border border-cyan-400/40 text-cyan-400 font-mono text-xs tracking-widest uppercase">
+                    USER IDENTIFIED // WELCOME COMMANDER
+                </div>
+                
+                <h2 class="font-orbitron text-3xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-400 tracking-tight leading-tight glow-cyan">
+                    HELLO, I AM IRON MAN
+                </h2>
+                
+                <p class="text-cyan-200/80 text-sm md:text-base font-mono leading-relaxed">
+                    Welcome, <span class="text-cyan-400 font-bold uppercase tracking-wider">HARI</span>. Flight trajectories, Mark LXXXV armor suit diagnostic telemetry, and Arc Reactor stabilization are optimal.
+                </p>
+
+                <!-- Status Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 pt-4 text-left">
+                    <div class="stark-glass p-3 md:p-4 rounded-lg">
+                        <div class="text-[10px] md:text-xs font-mono text-cyan-400/70">REPULSOR OUTPUT</div>
+                        <div class="text-lg md:text-xl font-orbitron font-bold text-white mt-0.5">100% MAXIMUM</div>
+                        <div class="w-full bg-cyan-950 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div class="bg-cyan-400 h-full w-[100%]"></div>
+                        </div>
+                    </div>
+                    <div class="stark-glass p-3 md:p-4 rounded-lg">
+                        <div class="text-[10px] md:text-xs font-mono text-cyan-400/70">FLIGHT STABILITY</div>
+                        <div class="text-lg md:text-xl font-orbitron font-bold text-white mt-0.5">SMOOTH / 60 FPS</div>
+                        <div class="w-full bg-cyan-950 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div class="bg-emerald-400 h-full w-[98%]"></div>
+                        </div>
+                    </div>
+                    <div class="col-span-2 md:col-span-1 stark-glass p-3 md:p-4 rounded-lg">
+                        <div class="text-[10px] md:text-xs font-mono text-cyan-400/70">SUIT INTEGRITY</div>
+                        <div class="text-lg md:text-xl font-orbitron font-bold text-cyan-400 mt-0.5">OPTIMAL</div>
+                        <div class="w-full bg-cyan-950 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div class="bg-cyan-400 h-full w-[95%]"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Telemetry Bar -->
+            <div class="w-full flex justify-between items-center text-[10px] md:text-xs font-mono text-cyan-500/50 border-t border-cyan-500/20 pt-3">
+                <span>STARK OS SECURITY: ACTIVE</span>
+                <span class="hidden md:inline">REPULSOR CHARGE: FULL</span>
+                <span>SYSTEM MODE: COMMAND</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- HUD Cursor Tracking Reticle -->
+    <div id="hud-reticle" class="fixed pointer-events-none z-40 transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-300 opacity-50 hidden md:block">
+        <div class="w-12 h-12 border border-cyan-400/40 rounded-full flex items-center justify-center animate-spin-slow">
+            <div class="w-8 h-8 border border-dashed border-cyan-400/70 rounded-full"></div>
+        </div>
+        <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-1.5 h-1.5 bg-cyan-400 rounded-full"></div>
+        </div>
+    </div>
+
+    <!-- 3D SCENE & GSAP FLIGHT CONTROLLER -->
+    <script>
+        let scene, camera, renderer;
+        let ironManGroup, headGroup, chestArcMesh, palmRepulsorRight, palmRepulsorLeft;
+        let thrusterParticles, flightTrailParticles;
+        let mouse = { x: 0, y: 0 };
+        let isAnimating = false;
+        let isDashboard = false;
+
+        // Custom Animation Path state for GSAP
+        let flightPath = { progress: 0 };
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x04070F, 0.025);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 10);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Lighting Setup
+            setupLighting();
+
+            // Create Iron Man Suit Model matching the provided Image Reference
+            createClassicIronMan();
+
+            // Space/HUD Particles
+            createHUDBackgroundParticles();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('mousemove', onMouseMove);
+
+            // Initial Responsive Placement
+            setResponsivePositioning();
+
+            // Start Render Loop
+            animate();
+        }
+
+        function setupLighting() {
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            // Main Golden Metallic Key Light
+            const keyLight = new THREE.DirectionalLight(0xffd700, 1.5);
+            keyLight.position.set(6, 6, 6);
+            scene.add(keyLight);
+
+            // Crimson Armor Fill Light
+            const fillLight = new THREE.DirectionalLight(0xff1e27, 1.2);
+            fillLight.position.set(-6, -2, 4);
+            scene.add(fillLight);
+
+            // Cyan Arc Reactor Sci-Fi Rim Light
+            const rimLight = new THREE.PointLight(0x00f0ff, 3, 12);
+            rimLight.position.set(0, 1, 3);
+            scene.add(rimLight);
+        }
+
+        // Detailed Classic Movie/Comic Suit Mesh (Based on User Image Reference)
+        function createClassicIronMan() {
+            ironManGroup = new THREE.Group();
+
+            // Distinct Armor Materials
+            const redMat = new THREE.MeshStandardMaterial({
+                color: 0x990000,
+                roughness: 0.18,
+                metalness: 0.85,
+            });
+
+            const goldMat = new THREE.MeshStandardMaterial({
+                color: 0xe6b800,
+                roughness: 0.22,
+                metalness: 0.88,
+            });
+
+            const silverMat = new THREE.MeshStandardMaterial({
+                color: 0x333338,
+                roughness: 0.35,
+                metalness: 0.75
+            });
+
+            const cyanGlowMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+
+            // --- 1. HELMET / HEAD ---
+            headGroup = new THREE.Group();
+
+            // Cranium (Red Upper Helmet)
+            const craniumGeo = new THREE.SphereGeometry(0.52, 32, 32);
+            craniumGeo.scale(1, 1.12, 1.05);
+            const cranium = new THREE.Mesh(craniumGeo, redMat);
+            headGroup.add(cranium);
+
+            // Iconic Gold Faceplate
+            const faceplateGeo = new THREE.CylinderGeometry(0.36, 0.2, 0.65, 16);
+            faceplateGeo.scale(1, 1, 0.55);
+            const faceplate = new THREE.Mesh(faceplateGeo, goldMat);
+            faceplate.position.set(0, -0.04, 0.28);
+            faceplate.rotation.x = 0.12;
+            headGroup.add(faceplate);
+
+            // Glowing Slit Eyes (Gaze-tracking)
+            const eyeGeo = new THREE.BoxGeometry(0.12, 0.028, 0.05);
+            
+            const leftEye = new THREE.Mesh(eyeGeo, cyanGlowMat);
+            leftEye.position.set(-0.13, 0.05, 0.51);
+            leftEye.rotation.z = -0.06;
+
+            const rightEye = new THREE.Mesh(eyeGeo, cyanGlowMat);
+            rightEye.position.set(0.13, 0.05, 0.51);
+            rightEye.rotation.z = 0.06;
+
+            headGroup.add(leftEye);
+            headGroup.add(rightEye);
+
+            headGroup.position.set(0, 1.35, 0);
+            ironManGroup.add(headGroup);
+
+            // --- 2. TORSO & TRIANGULAR ARC REACTOR (Matching Image Reference) ---
+            const torsoGroup = new THREE.Group();
+
+            // Main Red Chest Plate
+            const chestGeo = new THREE.CylinderGeometry(0.72, 0.48, 1.15, 8);
+            const chest = new THREE.Mesh(chestGeo, redMat);
+            torsoGroup.add(chest);
+
+            // Gold Shoulder Insets
+            const shoulderInsetGeo = new THREE.BoxGeometry(0.7, 0.3, 0.55);
+            const shoulderInset = new THREE.Mesh(shoulderInsetGeo, goldMat);
+            shoulderInset.position.set(0, 0.4, 0.05);
+            torsoGroup.add(shoulderInset);
+
+            // Triangular Arc Reactor Frame (From Provided Image)
+            const triShape = new THREE.Shape();
+            triShape.moveTo(0, 0.22);
+            triShape.lineTo(0.2, -0.15);
+            triShape.lineTo(-0.2, -0.15);
+            triShape.lineTo(0, 0.22);
+
+            const extrudeSettings = { depth: 0.08, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
+            const arcFrameGeo = new THREE.ExtrudeGeometry(triShape, extrudeSettings);
+            const arcFrame = new THREE.Mesh(arcFrameGeo, silverMat);
+            arcFrame.position.set(0, 0.18, 0.35);
+            torsoGroup.add(arcFrame);
+
+            // Glowing Arc Core
+            const arcCoreGeo = new THREE.ShapeGeometry(triShape);
+            chestArcMesh = new THREE.Mesh(arcCoreGeo, cyanGlowMat);
+            chestArcMesh.position.set(0, 0.18, 0.42);
+            torsoGroup.add(chestArcMesh);
+
+            // Gold Abdominal Armor Plates
+            const absGeo = new THREE.BoxGeometry(0.52, 0.42, 0.42);
+            const abs = new THREE.Mesh(absGeo, goldMat);
+            abs.position.set(0, -0.5, 0.05);
+            torsoGroup.add(abs);
+
+            torsoGroup.position.set(0, 0.35, 0);
+            ironManGroup.add(torsoGroup);
+
+            // --- 3. ARMS & PALM REPULSOR BLAST (Matching Dynamic Image Pose) ---
+            // Right Arm - Outstretched Palm Repulsor (Like the user's image)
+            const rightArmGroup = new THREE.Group();
+            
+            const shoulderR = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), redMat);
+            rightArmGroup.add(shoulderR);
+
+            const bicepR = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.45, 12), redMat);
+            bicepR.position.set(0.25, -0.2, 0.2);
+            bicepR.rotation.z = -0.5;
+            bicepR.rotation.x = 0.8;
+            rightArmGroup.add(bicepR);
+
+            const forearmR = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.5, 12), goldMat);
+            forearmR.position.set(0.5, -0.35, 0.5);
+            forearmR.rotation.z = -0.8;
+            forearmR.rotation.x = 1.2;
+            rightArmGroup.add(forearmR);
+
+            // Palm Repulsor Blast Core
+            const repulsorGeo = new THREE.SphereGeometry(0.1, 16, 16);
+            palmRepulsorRight = new THREE.Mesh(repulsorGeo, cyanGlowMat);
+            palmRepulsorRight.position.set(0.7, -0.4, 0.8);
+            rightArmGroup.add(palmRepulsorRight);
+
+            rightArmGroup.position.set(0.75, 0.75, 0);
+            ironManGroup.add(rightArmGroup);
+
+            // Left Arm - Tucked Power Fist Pose
+            const leftArmGroup = new THREE.Group();
+            
+            const shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), redMat);
+            leftArmGroup.add(shoulderL);
+
+            const bicepL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.45, 12), goldMat);
+            bicepL.position.set(-0.2, -0.25, 0);
+            bicepL.rotation.z = 0.4;
+            leftArmGroup.add(bicepL);
+
+            const forearmL = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.5, 12), redMat);
+            forearmL.position.set(-0.35, -0.65, 0.1);
+            forearmL.rotation.z = 0.5;
+            leftArmGroup.add(forearmL);
+
+            palmRepulsorLeft = new THREE.Mesh(repulsorGeo, cyanGlowMat);
+            palmRepulsorLeft.position.set(-0.4, -0.9, 0.2);
+            leftArmGroup.add(palmRepulsorLeft);
+
+            leftArmGroup.position.set(-0.75, 0.75, 0);
+            ironManGroup.add(leftArmGroup);
+
+            // --- 4. LEGS (Gold Thigh Highlights from Image) ---
+            const createLeg = (isLeft) => {
+                const legGroup = new THREE.Group();
+                const side = isLeft ? -1 : 1;
+
+                // Thigh (Gold Inset Accent)
+                const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.19, 0.7, 12), goldMat);
+                thigh.position.set(0, -0.35, 0);
+                legGroup.add(thigh);
+
+                // Shin (Red Main)
+                const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.14, 0.7, 12), redMat);
+                shin.position.set(0, -0.95, 0);
+                legGroup.add(shin);
+
+                legGroup.position.set(side * 0.35, -0.3, 0);
+                return legGroup;
+            };
+
+            ironManGroup.add(createLeg(true));
+            ironManGroup.add(createLeg(false));
+
+            // Thruster System
+            createThrusterParticles();
+
+            scene.add(ironManGroup);
+        }
+
+        // Thruster Flames
+        function createThrusterParticles() {
+            const count = 80;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+
+            for (let i = 0; i < count * 3; i += 3) {
+                pos[i] = (Math.random() - 0.5) * 0.3;
+                pos[i + 1] = -1.8 - Math.random() * 0.9;
+                pos[i + 2] = (Math.random() - 0.5) * 0.3;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({
+                color: 0x00ffff,
+                size: 0.09,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending
+            });
+
+            thrusterParticles = new THREE.Points(geo, mat);
+            ironManGroup.add(thrusterParticles);
+        }
+
+        // Ambient HUD Space Particles
+        function createHUDBackgroundParticles() {
+            const count = 250;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+
+            for (let i = 0; i < count * 3; i += 3) {
+                pos[i] = (Math.random() - 0.5) * 18;
+                pos[i + 1] = (Math.random() - 0.5) * 18;
+                pos[i + 2] = (Math.random() - 0.5) * 18;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({
+                color: 0x00f0ff,
+                size: 0.035,
+                transparent: true,
+                opacity: 0.4
+            });
+
+            const particles = new THREE.Points(geo, mat);
+            scene.add(particles);
+        }
+
+        // Handle Responsive Positioning
+        function setResponsivePositioning() {
+            if (isAnimating) return;
+
+            const isMobile = window.innerWidth < 768;
+
+            if (!isDashboard) {
+                // Login View Positioning
+                if (isMobile) {
+                    ironManGroup.position.set(0, 1.2, 0);
+                    ironManGroup.scale.set(0.8, 0.8, 0.8);
+                } else {
+                    ironManGroup.position.set(-2.6, -0.4, 0);
+                    ironManGroup.scale.set(1.15, 1.15, 1.15);
+                }
+                ironManGroup.rotation.set(0, 0.25, 0);
+            } else {
+                // Dashboard Landing Position (Left Side)
+                if (isMobile) {
+                    ironManGroup.position.set(0, 0.9, 0);
+                    ironManGroup.scale.set(0.85, 0.85, 0.85);
+                } else {
+                    ironManGroup.position.set(-2.4, -0.3, 0.8);
+                    ironManGroup.scale.set(1.25, 1.25, 1.25);
+                }
+                ironManGroup.rotation.set(0, 0.35, 0);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            setResponsivePositioning();
+        }
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            const reticle = document.getElementById('hud-reticle');
+            if (reticle) {
+                reticle.style.left = `${event.clientX}px`;
+                reticle.style.top = `${event.clientY}px`;
+            }
+        }
+
+        // Trigger Landing Ground Shockwave Effect
+        function triggerLandingShockwave() {
+            const container = document.getElementById('shockwave-container');
+            const shock = document.createElement('div');
+            shock.className = 'shockwave-effect';
+            
+            // Position on lower left corresponding to Iron Man's feet
+            const isMobile = window.innerWidth < 768;
+            shock.style.left = isMobile ? '50%' : '20%';
+            shock.style.top = isMobile ? '65%' : '75%';
+            
+            container.appendChild(shock);
+            setTimeout(() => shock.remove(), 800);
+        }
+
+        // --- GSAP ULTRA-SMOOTH FLIGHT & ORBIT SEQUENCE ---
+        function runFlightSequence() {
+            isAnimating = true;
+
+            const timeline = gsap.timeline({
+                onComplete: () => {
+                    isAnimating = false;
+                    isDashboard = true;
+                    showDashboardUI();
+                }
+            });
+
+            // PHASE 1: Takeoff Power-Up
+            timeline.to(ironManGroup.position, {
+                y: "-=0.3",
+                z: "-=0.2",
+                duration: 0.4,
+                ease: "power2.out"
+            })
+            // Energy Charge Glow Intensity
+            .to(chestArcMesh.scale, {
+                x: 1.6, y: 1.6, z: 1.6,
+                duration: 0.4,
+                ease: "back.out(2)"
+            }, "<")
+
+            // PHASE 2: Horizontal Forward Thrust & Tilt into Flight Pose
+            .to(ironManGroup.rotation, {
+                x: Math.PI / 2.4, // Tilt forward
+                y: Math.PI / 3,   // Angle right towards card
+                z: -0.3,
+                duration: 0.6,
+                ease: "power2.in"
+            })
+            .to(ironManGroup.position, {
+                x: 0,
+                y: 0.5,
+                z: 1.5,
+                duration: 0.6,
+                ease: "power2.in"
+            }, "<")
+
+            // PHASE 3: Cubic Bezier Curve Orbiting Around the Login Card
+            // Path: Sweeps from Front -> Around Right Side of Card -> Behind Card -> Off Screen Right
+            .to(flightPath, {
+                progress: 1,
+                duration: 1.6,
+                ease: "sine.inOut",
+                onUpdate: () => {
+                    const t = flightPath.progress;
+                    // Curved parametric orbit trajectory calculation
+                    const angle = t * Math.PI * 1.2;
+                    const radius = 3.8;
+
+                    ironManGroup.position.x = Math.sin(angle) * radius + 0.8;
+                    ironManGroup.position.z = Math.cos(angle) * radius - 1.2;
+                    ironManGroup.position.y = Math.sin(t * Math.PI) * 1.5;
+
+                    // Dynamic rotation along path vector
+                    ironManGroup.rotation.y = angle + Math.PI / 2;
+                    ironManGroup.rotation.z = -Math.sin(t * Math.PI) * 0.4;
+                }
+            })
+
+            // PHASE 4: Off-screen Zoom Swoop
+            .to(ironManGroup.position, {
+                x: 10,
+                y: 3,
+                z: -5,
+                duration: 0.5,
+                ease: "power3.in"
+            })
+
+            // PHASE 5: Hero Landing Sequence on Dashboard Left
+            .call(() => {
+                // Reset position off-screen top left prior to landing entry
+                ironManGroup.position.set(-8, 6, 2);
+                ironManGroup.rotation.set(0.2, 0.4, 0);
+            })
+            .to(ironManGroup.position, {
+                x: window.innerWidth < 768 ? 0 : -2.4,
+                y: window.innerWidth < 768 ? 0.9 : -0.3,
+                z: window.innerWidth < 768 ? 0 : 0.8,
+                duration: 0.8,
+                ease: "bounce.out",
+                onStart: () => {
+                    // Reset chest glow
+                    gsap.to(chestArcMesh.scale, { x: 1, y: 1, z: 1, duration: 0.3 });
+                },
+                onComplete: () => {
+                    triggerLandingShockwave();
+                }
+            })
+            .to(ironManGroup.rotation, {
+                x: 0,
+                y: 0.35,
+                z: 0,
+                duration: 0.5,
+                ease: "power2.out"
+            }, "-=0.6");
+        }
+
+        // GSAP Logout Transition Sequence
+        function runLogoutSequence() {
+            isAnimating = true;
+
+            gsap.timeline({
+                onComplete: () => {
+                    isAnimating = false;
+                    isDashboard = false;
+                    showLoginUI();
+                    setResponsivePositioning();
+                }
+            })
+            .to(ironManGroup.position, {
+                y: 8,
+                z: -4,
+                duration: 0.7,
+                ease: "power3.in"
+            })
+            .to(ironManGroup.rotation, {
+                x: -0.6,
+                duration: 0.7
+            }, "<")
+            .call(() => {
+                flightPath.progress = 0;
+            });
+        }
+
+        // --- RENDER LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Gaze tracking when idle
+            if (!isAnimating) {
+                headGroup.rotation.y = mouse.x * 0.45;
+                headGroup.rotation.x = -mouse.y * 0.35;
+
+                // Subtle float breathing motion
+                const floatOffset = Math.sin(Date.now() * 0.0025) * 0.06;
+                ironManGroup.position.y = (isDashboard ? (window.innerWidth < 768 ? 0.9 : -0.3) : (window.innerWidth < 768 ? 1.2 : -0.4)) + floatOffset;
+
+                // Arc pulse
+                const pulse = 1 + Math.sin(Date.now() * 0.006) * 0.12;
+                chestArcMesh.scale.set(pulse, pulse, pulse);
+            }
+
+            // Animate thruster flame length
+            if (thrusterParticles) {
+                const positions = thrusterParticles.geometry.attributes.position.array;
+                for (let i = 1; i < positions.length; i += 3) {
+                    positions[i] -= 0.09;
+                    if (positions[i] < -2.7) {
+                        positions[i] = -1.8;
+                    }
+                }
+                thrusterParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- FORM & UI LOGIC ---
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const userIn = document.getElementById('username').value.trim();
+            const passIn = document.getElementById('password').value.trim();
+            const errBox = document.getElementById('error-box');
+            const loginCard = document.getElementById('login-card');
+
+            // Verification: Username = hari, Password = 1234
+            if (!spriteBusy && userIn === "hari" && passIn === "1234") {
+                errBox.classList.add('hidden');
+                
+                // Hide card smoothly
+                loginCard.classList.add('opacity-0', 'scale-90', 'pointer-events-none');
+                setTimeout(() => {
+                    loginCard.classList.add('hidden');
+                }, 400);
+
+                // Run smooth 3D flight transition
+                runSpriteFlight();
+
+            } else {
+                errBox.classList.remove('hidden');
+                loginCard.classList.add('shake-err');
+                setTimeout(() => loginCard.classList.remove('shake-err'), 400);
+            }
+        }
+
+        function showDashboardUI() {
+            const dashView = document.getElementById('dashboard-view');
+            dashView.classList.remove('hidden');
+            setTimeout(() => {
+                dashView.classList.remove('opacity-0', 'translate-y-10');
+                dashView.classList.add('opacity-100', 'translate-y-0');
+            }, 50);
+        }
+
+        function handleLogout() {
+            const dashView = document.getElementById('dashboard-view');
+            dashView.classList.remove('opacity-100', 'translate-y-0');
+            dashView.classList.add('opacity-0', 'translate-y-10');
+
+            setTimeout(() => {
+                dashView.classList.add('hidden');
+                runSpriteLogout();
+            }, 400);
+        }
+
+        function showLoginUI() {
+            const loginCard = document.getElementById('login-card');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            loginCard.classList.remove('hidden', 'opacity-0', 'scale-90', 'pointer-events-none');
+            loginCard.classList.add('opacity-100', 'scale-100', 'pointer-events-auto');
+        }
+
+
+        // Image-based character: original supplied illustration, not a substitute 3D mesh.
+        const sprite = document.getElementById('iron-sprite');
+        const veil = document.getElementById('transition-veil');
+        let spriteBusy = false;
+        const pose = {x:0,y:0,scale:1,rotation:0,turn:0};
+        function renderSprite(){
+            sprite.style.transform = `translate(${pose.x}px,${pose.y}px) translate(-50%,-50%) rotateY(${pose.turn}deg) rotate(${pose.rotation}deg) scale(${pose.scale})`;
+        }
+        function restingPose(dashboard=false){
+            const mobile=innerWidth<768;
+            return {x:mobile?innerWidth*.5:innerWidth*.23,y:mobile?(dashboard?innerHeight*.39:innerHeight*.28):innerHeight*.54,scale:mobile?(dashboard?.78:.83):(dashboard?1.12:1.04),rotation:0,turn:0};
+        }
+        function initSprite(){Object.assign(pose,restingPose());renderSprite();addEventListener('resize',()=>{if(!spriteBusy){Object.assign(pose,restingPose(isDashboard));renderSprite();}});}
+        function landingBurst(){
+            const ring=document.createElement('div');ring.className='landing-ring';ring.style.left=pose.x+'px';ring.style.top=(pose.y+sprite.getBoundingClientRect().height*.36)+'px';document.body.appendChild(ring);setTimeout(()=>ring.remove(),850);
+        }
+        function runSpriteFlight(){
+            if(spriteBusy)return;spriteBusy=true;sprite.classList.add('thrust');
+            const start={...pose}, card=document.getElementById('login-card').getBoundingClientRect();
+            const cx=card.left+card.width/2,cy=card.top+card.height/2;
+            // One full revolution around the authentication card, with depth simulated by scale and Y rotation.
+            const orbit={t:0}, radiusX=Math.max(card.width*.75,innerWidth<768?115:230),radiusY=Math.max(card.height*.65,innerWidth<768?150:190);
+            const landing=restingPose(true);
+            gsap.timeline({onComplete:()=>{spriteBusy=false;isDashboard=true;sprite.classList.remove('thrust');}})
+              .to(pose,{y:start.y-65,rotation:-18,scale:start.scale*1.07,duration:.55,ease:'power2.inOut',onUpdate:renderSprite})
+              .to(pose,{x:cx+radiusX,y:cy,rotation:60,scale:.85,duration:.65,ease:'power2.inOut',onUpdate:renderSprite})
+              .to(orbit,{t:1,duration:3.1,ease:'none',onUpdate:()=>{
+                  const a=orbit.t*Math.PI*2;
+                  pose.x=cx+Math.cos(a)*radiusX;
+                  pose.y=cy+Math.sin(a)*radiusY;
+                  pose.scale=.65+.43*(Math.sin(a)+1)/2;
+                  pose.turn=Math.sin(a)*42;
+                  pose.rotation=90+a*180/Math.PI;
+                  renderSprite();
+              }})
+              .to(pose,{x:innerWidth+180,y:-150,scale:.35,rotation:45,turn:0,duration:.65,ease:'power3.in',onUpdate:renderSprite})
+              .to(veil,{opacity:1,duration:.22},'<.36')
+              .call(()=>{showDashboardUI();Object.assign(pose,{x:-130,y:-180,scale:.65,rotation:35,turn:0});renderSprite();})
+              .to(veil,{opacity:0,duration:.65})
+              .to(pose,{x:landing.x,y:landing.y-90,scale:landing.scale,rotation:10,duration:.9,ease:'power2.out',onUpdate:renderSprite},'<')
+              .to(pose,{y:landing.y,rotation:0,duration:.5,ease:'power3.in',onUpdate:renderSprite,onComplete:()=>{landingBurst();sprite.classList.remove('thrust');}})
+              .to(pose,{y:landing.y-9,duration:.16,ease:'power2.out',onUpdate:renderSprite})
+              .to(pose,{y:landing.y,duration:.22,ease:'power2.inOut',onUpdate:renderSprite});
+        }
+        function runSpriteLogout(){
+            spriteBusy=true;sprite.classList.add('thrust');
+            gsap.timeline({onComplete:()=>{isDashboard=false;Object.assign(pose,restingPose(false));renderSprite();showLoginUI();sprite.classList.remove('thrust');spriteBusy=false;}})
+            .to(pose,{y:-180,x:innerWidth*.5,rotation:-35,scale:.45,duration:.75,ease:'power3.in',onUpdate:renderSprite})
+            .to(veil,{opacity:1,duration:.22},'<.45')
+            .to(veil,{opacity:0,duration:.5});
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            initSprite();
+        };
+    </script>
+</body>
+</html>
